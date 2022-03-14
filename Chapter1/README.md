@@ -472,4 +472,199 @@ function createStatementData(invoice, plays) {
 }
 ```
 
-이제 두 단계가 명확하게 분리(`renderPlainText()`와 `createStatementData()`) 됐다. 이제 `createStatementData()` 함수를 외부 파일로 분리하자.
+이제 두 단계가 명확하게 분리(`renderPlainText()`와 `createStatementData()`)됐다. 이제 `createStatementData()` 함수를 외부 파일로 분리하자.
+
+이제 HTML 버전을 추가할 수 있다.
+
+```javascript
+function renderHtml(data) {
+  let result = `<h1>청구 내역 (고객명: ${data.customer})</h1>\n`;
+  result += '<table>\n';
+  result += '<tr><th>연극</th><th>좌석 수</th><th>금액</th></tr>';
+  for (let perf of data.performances) {
+    result += `  <tr><td>${perf.play.name}</td><td>(${perf.audience}석)</td>`;
+    result += `<td>${usd(perf.amount)}</td></tr>\n`;
+  }
+  result += '</table>\n';
+  result += `<p>총액: <em>${usd(data.totalAmount)}</em></p>\n`;
+  result += `<p>적립 포인트: <em>${data.totalVolumeCredits}</em>점</p>\n`;
+  return result;
+}
+
+function usd(aNumber) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(
+    aNumber / 100,
+  );
+}
+```
+
+HTML 버전에서도 `usd()`를 사용하기 위해 밖으로 뺐고, 어렵지 않게 `renderHtml()` 함수를 추가했다.
+
+## 중간 점검
+
+처음보다 코드량이 부쩍 늘어났다. 늘어난 주된 원인은 함수로 추출하면서 함수 본문을 열고 닫는 괄호가 덧붙었기 때문이다. 그 외에 달라진 점이 없다면 안좋은 징조지만, 다행히 전체 로직을 구성하는 각 요소들이 더 뚜렷이 부각되고, 계산하는 부분과 출력 형식을 다루는 부분이 분리됐다. 이렇게 모듈화하면 각 부분이 하는 일과 그 부분들이 맞물려 돌아가는 과정을 파악하기 쉬워진다. 프로그래밍에서만큼은 명료함이 진화할 수 있는 소프트웨어의 정수다. 모듈화한 소프트웨어 덕분에 계산 코드를 중복하지 않고도 HTML 버전을 만들 수 있었다.
+
+> 캠핑자들에게는 "도착했을 때보다 깔끔하게 정돈하고 떠난다"는 규칙이 있다. 프로그래밍도 마찬가지다. 항시 코드베이스를 작업 시작 전보다 건강하게 만들어놓고 떠나야 한다.
+
+## 다형성을 활용해 계산 코드 재구성하기
+
+이번에는 연극 장르를 추가하고 장르마다 공연료와 포인트 계산법을 다르게 지정하도록 기능을 수정해보자. 현재 상태에서 코드를 변경하려면 이 계산을 수행하는 함수에서 조건문을 수정해야 한다. `amountFor()` 함수를 보면 연극 장르에 따라 계산 방식이 달라진다는 사실을 알 수 있는데, 이런 형태의 조건부 로직은 코드 수정 횟수가 늘어날수록 골칫거리로 전락하기 쉽다.
+
+조건부 로직을 명확한 구조로 보완하는 방법은 다양하지만, 여기서는 객체지향의 핵심 특성인 다형성을 활용하기로 했다.
+
+이번 작업의 목표는 상속 계층을 구성해서 희극 서브클래스와 비극 서브클래스가 각자의 구체적인 계산 로직을 정의하는 것이다. 호출하는 쪽에서는 다형성 버전의 공연료 계산 함수를 호출하기만 하면 되고, 희극이냐 비극이냐에 따라 정확한 계산 로직을 ㅇ녀결하는 작업은 언어 차원에서 처리해준다.
+
+적립 포인트 계산도 비슷한 구조로 만들 것이다. 이 과정에서 몇 가지 리팩터링 기법을 적용하는데 그중 핵심은 **조건부 로직을 다형성으로 바꾸기**다. 이 리팩터링은 조건부 코드 한 덩어리를 다형성을 활용하는 방식으로 바꿔준다. 그런데 이 리팩터링을 적용하려면 상속 계층부터 정의해야 한다. 즉, 공연료와 적립 포인트 계산 함수를 담을 클래스가 필요하다.
+
+---
+
+일단 공연료 계산기부터 만들자. `createStatementData()` 함수의 핵심은 `enrichPerformance()` 함수다. 이 함수는 조건부 로직을 포함한 함수인 `amountFor()`와 `volumeCreditsFor()`를 호출하여 공연료와 적립 포인트를 계산한다. 이번에 이 두 함수를 전용 클래스로 옮겨보자. 전용 클래스 이름은 `PerformanceCalculator`가 좋겠다.
+
+그리고 기존 코드에서 몇 가지 동작을 공연료 계산기 클래스로 옮겨보자. 먼저 가장 간단한 연극 레코드(`play`)부터 옮기자. 사실 이 작업은 다형성을 적용해야 할 만큼 차이가 크지 않으니 반드시 할 필요는 없지만, 모든 데이터 변환을 한 곳에서 수행할 수 있어서 코드가 더욱 명확해진다.
+
+---
+
+이후 `amountFor()` 함수를 `PerformanceCalculator` 클래스 내부의 `get amount`로 옮기자.
+
+```javascript
+class PerformanceCalculator {
+  constructor(aPerformance, aPlay) {
+    this.performance = aPerformance;
+    this.play = aPlay;
+  }
+
+  get amount() {
+    let result = 0;
+    switch (this.play.type) {
+      case 'tragedy':
+        result = 40000;
+        if (this.performance.audience > 30) {
+          result += 1000 * (this.performance.audience - 30);
+        }
+        break;
+      case 'comedy':
+        result = 30000;
+        if (this.performance.audience > 20) {
+          result += 10000 + 500 * (this.performance.audience - 20);
+        }
+        result += 300 * this.performance.audience;
+        break;
+      default:
+        throw new Error(`알 수 없는 장르: ${this.play.type}`);
+    }
+
+    return result;
+  }
+}
+```
+
+적립 포인트를 계산하는 함수(`volumeCreditsFor()`)도 같은 방법으로 옮기자.
+
+```javascript
+// PerformanceCalculator 내부
+get volumeCredits() {
+  let result = 0;
+  result += Math.max(this.performance.audience - 30, 0);
+  if (this.play.type === 'comedy') {
+    result += Math.floor(this.performance.audience / 5);
+  }
+  return result;
+}
+```
+
+---
+
+클래스에 로직들을 담았으니 이제 다형성을 지원하게 만들어보자. 가장 먼저 할 일은 **타입 코드를 서브클래스로 바꾸기**다. 이렇게 하려면 `PerformaceCalculator`의 서브클래스들을 준비하고 `createStatementData()`에서 그중 적합한 서브클래스를 사용하게 만들어야 한다. 그리고 딱 맞는 서브클래스를 사용하려면 생성자 대신 함수를 호출하도록 바꿔야 한다(자바스크립트에서는 생성자가 서브클래스의 인스턴스를 반환할 수 없기 때문). 그래서 **생성자를 팩터리 함수로 바꾸기**를 적용한다.
+
+```javascript
+function createPerformanceCalculator(aPerformance, aPlay) {
+  return new PerformanceCalculator(aPerformance, aPlay);
+}
+
+export default function createStatementData(invoice, plays) {
+  // ...
+
+  function enrichPerformance(aPerformance) {
+    const calculator = createPerformanceCalculator(aPerformance, playFor(aPerformance));
+    const result = { ...aPerformance };
+    result.play = calculator.play;
+    result.amount = calculator.amount;
+    result.volumeCredits = calculator.volumeCredits;
+    return result;
+  }
+
+  // ...
+}
+```
+
+`createPerformanceCalculator()` 함수를 이용하면 `PerformanceCalculator`의 서브클래스 중 어떤 클래스를 생성해서 반환할 지 선택할 수 있다.
+
+```javascript
+function createPerformanceCalculator(aPerformance, aPlay) {
+  switch (aPlay.type) {
+    case 'tragedy':
+      return new TragedyCalculator(aPerformance, aPlay);
+    case 'comedy':
+      return new ComedyCalculator(aPerformance, aPlay);
+    default:
+      throw new Error(`알 수 없는 장르: ${aPlay.type}`);
+  }
+}
+
+class TragedyCalculator extends PerformanceCalculator {
+  get amount() {
+    let result = 40000;
+    if (this.performance.audience > 30) {
+      result += 1000 * (this.performance.audience - 30);
+    }
+    return result;
+  }
+}
+
+class ComedyCalculator extends PerformanceCalculator {
+  get amount() {
+    let result = 30000;
+    if (this.performance.audience > 20) {
+      result += 10000 + 500 * (this.performance.audience - 20);
+    }
+    result += 300 * this.performance.audience;
+    return result;
+  }
+}
+```
+
+그리고 `PerformanceCalculator`의 서브클래스인 `TragedyCalculator`와 `ComedyCalculator`를 만들고, `amount`를 오버라이딩해주면 된다.
+
+이제 슈퍼클래스의 `amount()` 메서드는 호출할 일이 없으니 삭제해도 좋으나 미래의 나에게 한 마디 남겨놓는 게 좋을 것 같다.
+
+```javascript
+class PerformanceCalculator {
+  // ...
+
+  get amount() {
+    throw new Error('서브클래스에서 처리하도록 설계되었습니다.');
+  }
+
+  // ...
+}
+```
+
+이제 `volumeCredits()`메서드도 다형성으로 처리하자. 여기서는 희극의 경우만 포인트 계산 방식이 달라지므로 기본 처리는 슈퍼클래스에서 하고, 희극만 오버라이딩해서 별도로 처리하는 것이 좋다.
+
+```javascript
+class PerformanceCalculator {
+  // ...
+
+  get volumeCredits() {
+    return Math.max(this.performance.audience - 30, 0);
+  }
+}
+
+class ComedyCalculator extends PerformanceCalculator {
+  // ...
+
+  get volumeCredits() {
+    return super.volumeCredits + Math.floor(this.performance.audience / 5);
+  }
+}
+```
