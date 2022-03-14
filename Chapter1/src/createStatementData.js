@@ -16,14 +16,7 @@ class PerformanceCalculator {
   }
 
   get amount() {
-    switch (this.play.type) {
-      case 'tragedy':
-        throw '오류 발생';
-      case 'comedy':
-        throw '오류 발생';
-      default:
-        throw new Error(`알 수 없는 장르: ${this.play.type}`);
-    }
+    throw new Error('서브클래스에서 처리하도록 설계되었습니다.');
   }
 
   get volumeCredits() {
