@@ -1,9 +1,10 @@
 import Province, { sampleProvinceData } from '../src/Province.js';
-import assert from 'assert';
+import chai from 'chai';
+const expect = chai.expect;
 
 describe('province', function () {
   it('shortfall', function () {
     const asia = new Province(sampleProvinceData());
-    assert.equal(asia.shortfall, 5);
+    expect(asia.shortfall).equal(5);
   });
 });
