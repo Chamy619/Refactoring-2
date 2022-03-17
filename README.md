@@ -5,3 +5,4 @@
 - [Chapter01 리팩터링: 첫 번째 예시](./Chapter01)
 - [Chapter02 리팩터링 원칙](./Chapter02)
 - [Chpater03 코드에서 나는 악취](./Chapter03)
+- [Chapter04 테스트 구축하기](./Chapter04)
