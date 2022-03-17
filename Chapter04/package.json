@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "리팩터링을 제대로 하려면 불가피하게 저지르는 실수를 잡아주는 견고한 테스트 스위트가 필요하다. 리팩터링을 하지 않더라도 좋은 테스트를 작성하는 일은 개발 효율을 높여준다.",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha"
   },
   "author": "",
   "license": "ISC",
