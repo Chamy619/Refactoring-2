@@ -15,7 +15,7 @@ class Producer {
   }
 
   set cost(arg) {
-    this._cost = arg;
+    this._cost = parseInt(arg);
   }
 
   get production() {
@@ -25,7 +25,7 @@ class Producer {
   set production(amountStr) {
     const amount = parseInt(amountStr);
     const newProduction = Number.isNaN(amount) ? 0 : amount;
-    this._province.totalProduction += newProduction + this._production;
+    this._province.totalProduction += newProduction - this._production;
     this._production = newProduction;
   }
 }
