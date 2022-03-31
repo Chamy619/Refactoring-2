@@ -7,3 +7,4 @@
 - [Chpater03 코드에서 나는 악취](./Chapter03)
 - [Chapter04 테스트 구축하기](./Chapter04)
 - [Chapter05 리팩터링 카탈로그 보는 법](./Chapter05)
+- [Chapter06 기본적인 리팩터링](./Chapter06)
